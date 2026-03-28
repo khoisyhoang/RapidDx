@@ -4,6 +4,12 @@ from scispacy.abbreviation import AbbreviationDetector
 import spacy
 from scispacy.linking import EntityLinker
 
+# T029: Body Part
+# T184: Sign or Symptom
+# T047: Disease or Syndrome
+TARGET_TYPES = {"T029", "T184", "T047"}
+TYPE_TO_BUCKET = {"T184": "symptom", "T047": "diseases", "T029": "body_type"}
+
 # Load the scispacy model
 try:
     nlp = spacy.load("en_core_sci_sm")
@@ -11,49 +17,103 @@ try:
 except OSError:
     nlp = None
 
-scispacy_bp = Blueprint('scispacy', __name__)
+scispacy_bp = Blueprint("scispacy", __name__)
 
-@scispacy_bp.route('/api/scispacy/process', methods=['GET'])
-def process_text():
-    """
-    Process biomedical text using scispacy for entity recognition.
-    Uses hardcoded test text.
-    Returns: {"entities": [{"text": "...", "start": 0, "end": 10, "label": "..."}], "sentences": [...], "success": true}
-    """
-    if nlp is None:
-        return jsonify({"error": "scispacy model not loaded. Install with: pip install scispacy && pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.1/en_core_sci_lg-0.5.1.tar.gz", "success": False}), 500
 
-    text = "I feel hot in my chest and coughing all day, maybe im in love. I dont know what to do. I feel dizzy. I feel tired."
-
-    try:
-        doc = nlp(text)
-        entities = []
-        linker = nlp.get_pipe("scispacy_linker")
-
-        for ent in doc.ents:
-            entity_info = {
-                "text": ent.text,
-                "label": "ENTITY",
-                "umls_matches": []
+def _model_not_loaded_response():
+    return (
+        jsonify(
+            {
+                "error": (
+                    "scispacy model not loaded. Install with: "
+                    "pip install scispacy && "
+                    "pip install "
+                    "https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.1/"
+                    "en_core_sci_lg-0.5.1.tar.gz"
+                ),
+                "success": False,
             }
-            for cui, score in ent._.kb_ents[:3]:  # top 3 matches
-                concept = linker.kb.cui_to_entity[cui]
-                print(concept)
-                entity_info["umls_matches"].append({
+        ),
+        500,
+    )
+
+
+def analyze_text(text: str):
+    doc = nlp(text)
+    linker = nlp.get_pipe("scispacy_linker")
+
+    entities = []
+    diagnosis_seed = {"symptom": [], "diseases": [], "body_type": []}
+    seen_seed = {key: set() for key in diagnosis_seed.keys()}
+
+    for ent in doc.ents:
+        umls_matches = []
+        picked_types = set()
+
+        for cui, score in ent._.kb_ents[:5]:
+            concept = linker.kb.cui_to_entity[cui]
+            matched_types = [t for t in concept.types if t in TARGET_TYPES]
+            if not matched_types:
+                continue
+
+            picked_types.update(matched_types)
+            umls_matches.append(
+                {
                     "cui": cui,
                     "name": concept.canonical_name,
-                    "types": concept.types,
-                    "score": round(score, 2)
-                })
-            entities.append(entity_info)
-        sentences = [sent.text for sent in doc.sents]
+                    "types": matched_types,
+                    "score": round(score, 3),
+                }
+            )
 
-        return jsonify({
-            "entities": entities,
-            "sentences": sentences,
+            for t in matched_types:
+                bucket = TYPE_TO_BUCKET[t]
+                value = concept.canonical_name
+                if value not in seen_seed[bucket]:
+                    diagnosis_seed[bucket].append(value)
+                    seen_seed[bucket].add(value)
+
+        if umls_matches:
+            entities.append(
+                {
+                    "text": ent.text,
+                    "label": "ENTITY",
+                    "selected_types": sorted(picked_types),
+                    "umls_matches": umls_matches,
+                }
+            )
+
+    return {
+        "entities": entities,
+        "sentences": [sent.text for sent in doc.sents],
+        "result": diagnosis_seed,
+    }
+
+@scispacy_bp.route("/api/diagnose", methods=["POST"])
+def diagnose_text():
+    if nlp is None:
+        return _model_not_loaded_response()
+
+    payload = request.get_json(silent=True) or {}
+    text = payload.get("text", "").strip()
+    session_id = payload.get("session_id", "default-session")
+    is_final = bool(payload.get("final", True))
+
+    if not text:
+        return jsonify({"success": False, "error": "text is required"}), 400
+
+    try:
+        analyzed = analyze_text(text)
+        response = {
             "success": True,
-            "processed_text": text
-        })
-
+            "session_id": session_id,
+            "final": is_final,
+            "processed_text": text,
+            "entities": analyzed["entities"],
+            "result": analyzed["result"],
+        }
+        print(f"[diagnose] session={session_id} final={is_final} text='{text}'")
+        print(f"[diagnose] result={response['result']}")
+        return jsonify(response)
     except Exception as e:
         return jsonify({"error": f"Processing failed: {str(e)}", "success": False}), 500

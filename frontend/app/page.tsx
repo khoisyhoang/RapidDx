@@ -77,6 +77,27 @@ function CallRoom({ roomUrl }: CallRoomProps) {
   const [transcription, setTranscription] = useState('');
   const [interimTranscription, setInterimTranscription] = useState('');
 
+  const runDiagnose = async (text: string) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/diagnose', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text,
+          final: true,
+          session_id: 'test-session-browser',
+        }),
+      });
+
+      const data = await response.json();
+      console.log('Diagnose API result:', data);
+    } catch (error) {
+      console.error('Diagnose API error:', error);
+    }
+  };
+
   const joinRoom = async () => {
     if (daily && roomUrl) {
       console.log('Joining room:', roomUrl);
@@ -141,6 +162,8 @@ function CallRoom({ roomUrl }: CallRoomProps) {
           final: true,
           session_id: 'test-session-browser'
         }));
+
+        void runDiagnose(finalTranscript);
       }
 
       // // Send interim transcripts to backend
