@@ -106,6 +106,8 @@ function CallRoom({ roomUrl }: CallRoomProps) {
     const recognition = new window.webkitSpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    
 
     // Setup transcript WebSocket
     transcriptWsRef.current = new WebSocket('ws://localhost:5000/ws/transcript');
