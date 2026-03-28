@@ -141,13 +141,21 @@ function CallRoom({ roomUrl }: CallRoomProps) {
         }));
       }
 
-      // Send interim transcripts to backend
-      if (interimTranscript && transcriptWsRef.current?.readyState === WebSocket.OPEN) {
-        transcriptWsRef.current.send(JSON.stringify({
-          text: interimTranscription,
-          final: false,
-          session_id: 'test-session-browser'
-        }));
+      // // Send interim transcripts to backend
+      // if (interimTranscript && transcriptWsRef.current?.readyState === WebSocket.OPEN) {
+      //   transcriptWsRef.current.send(JSON.stringify({
+      //     text: interimTranscription,
+      //     final: false,
+      //     session_id: 'test-session-browser'
+      //   }));
+      // }
+    };
+
+    recognition.onend = () => {
+      console.log('Speech recognition ended, restarting...');
+      if (isRecording && recognitionRef.current) {
+        recognitionRef.current.start();
+        console.log('Speech recognition restarted');
       }
     };
 

@@ -11,6 +11,7 @@ def register_transcription_ws(sock: Sock) -> None:
 
             try:
                 payload = json.loads(raw_message)
+                print("Received payload:", payload)
                 transcript_text = payload.get("text", "")
                 is_final = payload.get("final", False)
                 session_id = payload.get("session_id", "default-session")
