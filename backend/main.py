@@ -1,17 +1,13 @@
 from flask import Flask
 from flask_sock import Sock
-from spaghetti import scispacy_bp
-from transcription import register_transcription_ws
+from transcript_socket import register_transcript_ws
 
 def create_app():
     app = Flask(__name__)
     sock = Sock(app)
     
-    # Register blueprints
-    app.register_blueprint(scispacy_bp)
-    
     # Register WebSocket routes
-    register_transcription_ws(sock)
+    register_transcript_ws(sock)
 
     @app.after_request
     def add_cors_headers(response):
