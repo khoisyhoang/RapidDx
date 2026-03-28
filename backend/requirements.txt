@@ -77,3 +77,6 @@ Werkzeug==3.0.1
 wheel==0.42.0
 xdg==5
 xkit==0.0.0
+flask-sock==0.6.0
+scispacy==0.5.1
+spacy==3.7.2
