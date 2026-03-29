@@ -4,9 +4,10 @@ import { DailyAudio, useDaily } from '@daily-co/daily-react';
 import { useState, useRef, useEffect } from 'react';
 import { DailyVideo, DailyAudioTrack } from '@daily-co/daily-react';
 import { useParticipantIds } from '@daily-co/daily-react';
-import { CheckCircle2, LogIn, LogOut, Mic, Square } from 'lucide-react';
+import { CheckCircle2, LogIn, LogOut, Mic, Square, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AnatomySelector from '@/components/AnatomySelector';
+import DiagnosisModal from '@/components/DiagnosisModal';
 import {
   Card,
   CardContent,
@@ -75,10 +76,47 @@ function CallRoom({ roomUrl }: CallRoomProps) {
   const participantIds = useParticipantIds();
   const recognitionRef = useRef<any>(null);
   const transcriptWsRef = useRef<WebSocket | null>(null);
+  const transcriptionRef = useRef<HTMLDivElement>(null);
   const [transcription, setTranscription] = useState('');
   const [interimTranscription, setInterimTranscription] = useState('');
   const [diagnosisResults, setDiagnosisResults] = useState<{symptom: string[], diseases: string[], body_type: string[]} | null>(null);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
+  const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState(false);
+  const [comprehensiveDiagnosis, setComprehensiveDiagnosis] = useState<any>(null);
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+
+  // Auto-scroll transcription to bottom
+  useEffect(() => {
+    if (transcriptionRef.current) {
+      transcriptionRef.current.scrollTop = transcriptionRef.current.scrollHeight;
+    }
+  }, [transcription, interimTranscription]);
+
+  const runComprehensiveDiagnosis = async () => {
+    setIsDiagnosing(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/diagnose', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: 'test-session-browser',
+          age: 20,
+          gender: 'male'
+        }),
+      });
+
+      const data = await response.json();
+      console.log('Comprehensive diagnosis result:', data);
+      setComprehensiveDiagnosis(data);
+      setIsDiagnosisModalOpen(true);
+    } catch (error) {
+      console.error('Comprehensive diagnosis error:', error);
+    } finally {
+      setIsDiagnosing(false);
+    }
+  };
 
   // const runDiagnose = async (text: string) => {
   //   try {
@@ -143,7 +181,15 @@ function CallRoom({ roomUrl }: CallRoomProps) {
       try {
         const data = JSON.parse(msg.data);
         if (data.event === 'diagnosis_result' && data.result) {
-          setDiagnosisResults(data.result);
+          setDiagnosisResults(prev => {
+            if (!prev) return data.result;
+            
+            return {
+              symptom: [...new Set([...prev.symptom, ...data.result.symptom])],
+              diseases: [...new Set([...prev.diseases, ...data.result.diseases])],
+              body_type: [...new Set([...prev.body_type, ...data.result.body_type])]
+            };
+          });
         }
       } catch (error) {
         console.error('Failed to parse WebSocket message:', error);
@@ -190,17 +236,12 @@ function CallRoom({ roomUrl }: CallRoomProps) {
       //   }));
       // }
     };
-
+    recognition.start();
     recognition.onend = () => {
-      console.log('Speech recognition ended, restarting...');
-      if (isRecording && recognitionRef.current) {
-        recognitionRef.current.start();
-        console.log('Speech recognition restarted');
-      }
+      recognition.start();
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
     setIsRecording(true);
     console.log('Speech recognition started...');
   };
@@ -296,6 +337,17 @@ function CallRoom({ roomUrl }: CallRoomProps) {
                     </>
                   )}
                 </Button>
+
+                <Button
+                  onClick={runComprehensiveDiagnosis}
+                  disabled={isDiagnosing}
+                  variant="outline"
+                  size="lg"
+                  className="gap-2 transition-all duration-200 px-6 bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400 shadow-md"
+                >
+                  <Stethoscope className="w-5 h-5" />
+                  {isDiagnosing ? 'Diagnosing...' : 'Diagnose'}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -349,14 +401,14 @@ function CallRoom({ roomUrl }: CallRoomProps) {
 
         {/* Live Diagnosis */}
         {diagnosisResults && (
-          <Card className="border-slate-200 dark:border-slate-700 shadow-lg m-4 mt-0">
+          <Card className="border-slate-200 dark:border-slate-700 shadow-lg m-4 mt-0 flex-shrink-0">
             <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-b border-slate-200 dark:border-slate-700">
               <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
                 <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                 Live Diagnosis
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4">
+            <CardContent className="p-4 max-h-64 overflow-y-auto">
               <div className="space-y-4">
                 {diagnosisResults.symptom.length > 0 && (
                   <div>
@@ -403,20 +455,25 @@ function CallRoom({ roomUrl }: CallRoomProps) {
         )}
 
         {/* Anatomy 3D Image Placeholder */}
-        <AnatomySelector 
-          onSymptomsChange={setSelectedSymptoms}
-          websocket={transcriptWsRef.current}
-        />
+        <div className="flex-shrink-0 m-4">
+          <AnatomySelector 
+            onSymptomsChange={setSelectedSymptoms}
+            websocket={transcriptWsRef.current}
+          />
+        </div>
 
         {/* Live Transcription */}
-        <Card className="flex-1 border-slate-200 dark:border-slate-700 shadow-lg m-4">
-          <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-b border-slate-200 dark:border-slate-700">
+        <Card className="flex-1 border-slate-200 dark:border-slate-700 shadow-lg m-4 flex flex-col">
+          <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
             <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
               <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
               Live Transcription
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 flex-1 overflow-auto">
+          <CardContent 
+            ref={transcriptionRef}
+            className="p-4 flex-1 overflow-y-auto"
+          >
             <div className="space-y-4">
               {transcription && (
                 <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -439,6 +496,13 @@ function CallRoom({ roomUrl }: CallRoomProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Diagnosis Modal */}
+      <DiagnosisModal
+        isOpen={isDiagnosisModalOpen}
+        onClose={() => setIsDiagnosisModalOpen(false)}
+        diagnosisData={comprehensiveDiagnosis}
+      />
     </div>
   );
 }
