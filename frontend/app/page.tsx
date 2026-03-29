@@ -4,6 +4,7 @@ import { DailyAudio, useDaily } from '@daily-co/daily-react';
 import { useState, useRef, useEffect } from 'react';
 import { DailyVideo, DailyAudioTrack } from '@daily-co/daily-react';
 import { useParticipantIds } from '@daily-co/daily-react';
+import { useRouter } from 'next/navigation';
 import { CheckCircle2, LogIn, LogOut, Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,6 +49,12 @@ interface CallRoomProps {
 }
 
 export default function Home() {
+  const router = useRouter();
+  
+  const handleJoinCall = () => {
+    router.push('/call');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto px-4 py-8">
@@ -86,6 +93,8 @@ function CallRoom({ roomUrl }: CallRoomProps) {
         startAudioOff: false
       });
       setJoined(true);
+      // Auto-start recording when joining
+      await startSendingAudio();
     }
   };
 
