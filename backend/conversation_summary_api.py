@@ -1,6 +1,7 @@
 import os
 from threading import Lock
 from typing import Dict, List
+from datetime import datetime
 
 import requests
 
@@ -35,6 +36,7 @@ def _build_summary_prompt(conversation_text: str, symptoms: List[str]) -> str:
     return (
         f"""
         You are a specialized medical data extractor.
+        Today's date is {datetime.now().strftime('%Y-%m-%d')}.
 
         ### Task:
         Extract a chronological symptom timeline from the provided medical transcript.

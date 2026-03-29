@@ -68,7 +68,7 @@ def register_transcript_ws(sock: Sock) -> None:
                                     "ok": True,
                                     "event": "session_summary",
                                     "session_id": session_id,
-                                    "summary": summary.replace("```json", "").replace("```", "").strip(),
+                                    "summary": summary,
                                 }
                             )
                         )

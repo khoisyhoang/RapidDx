@@ -4,7 +4,7 @@ import scispacy
 from scispacy.linking import EntityLinker
 import spacy
 from conversation_summary_api import add_conversation_sentence
-from medical_diagnosis_api import add_symptoms
+from medical_diagnosis_api import add_anatomy, add_symptoms
 
 # T023, T029, T030: Body Part
 # T184: Sign or Symptom
@@ -136,6 +136,7 @@ def process_scispacy_text():
 
         combined_symptoms = list(dict.fromkeys(result.get("symptom", []) + result.get("diseases", [])))
         buffered_symptoms = add_symptoms(session_id, combined_symptoms)
+        buffered_anatomy = add_anatomy(session_id, result.get("body_type", []))
 
         return jsonify(
             {
@@ -144,6 +145,7 @@ def process_scispacy_text():
                 "text": text,
                 "result": result,
                 "buffered_symptoms": buffered_symptoms,
+                "buffered_anatomy": buffered_anatomy,
             }
         )
     except Exception as exc:
