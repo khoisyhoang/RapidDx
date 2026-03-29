@@ -6,6 +6,7 @@ import { DailyVideo, DailyAudioTrack } from '@daily-co/daily-react';
 import { useParticipantIds } from '@daily-co/daily-react';
 import { CheckCircle2, LogIn, LogOut, Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import AnatomySelector from '@/components/AnatomySelector';
 import {
   Card,
   CardContent,
@@ -76,6 +77,8 @@ function CallRoom({ roomUrl }: CallRoomProps) {
   const transcriptWsRef = useRef<WebSocket | null>(null);
   const [transcription, setTranscription] = useState('');
   const [interimTranscription, setInterimTranscription] = useState('');
+  const [diagnosisResults, setDiagnosisResults] = useState<{symptom: string[], diseases: string[], body_type: string[]} | null>(null);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
 
   const joinRoom = async () => {
     if (daily && roomUrl) {
@@ -114,7 +117,17 @@ function CallRoom({ roomUrl }: CallRoomProps) {
     // Setup transcript WebSocket
     transcriptWsRef.current = new WebSocket('ws://localhost:5000/ws/transcript');
     transcriptWsRef.current.onopen = () => console.log('Transcript WebSocket connected');
-    transcriptWsRef.current.onmessage = (msg) => console.log('Transcript WS response:', msg.data);
+    transcriptWsRef.current.onmessage = (msg) => {
+      console.log('Transcript WS response:', msg.data);
+      try {
+        const data = JSON.parse(msg.data);
+        if (data.event === 'diagnosis_result' && data.result) {
+          setDiagnosisResults(data.result);
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
+      }
+    };
     transcriptWsRef.current.onclose = () => console.log('Transcript WebSocket closed');
     transcriptWsRef.current.onerror = (error) => console.error('Transcript WebSocket error:', error);
 
@@ -340,28 +353,65 @@ function CallRoom({ roomUrl }: CallRoomProps) {
           </Card>
         )}
 
-        {/* Anatomy 3D Image Placeholder */}
-        <Card className="border-slate-200 dark:border-slate-700 shadow-lg m-4 mt-0">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-b border-slate-200 dark:border-slate-700">
-            <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              Anatomy Reference
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="aspect-square bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-4xl mb-2">🫀</div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">
-                  3D Anatomy Model
-                </p>
-                <p className="text-slate-500 dark:text-slate-500 text-xs mt-1">
-                  Interactive model coming soon
-                </p>
+        {/* Live Diagnosis */}
+        {diagnosisResults && (
+          <Card className="border-slate-200 dark:border-slate-700 shadow-lg m-4 mt-0">
+            <CardHeader className="bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-b border-slate-200 dark:border-slate-700">
+              <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                Live Diagnosis
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-4">
+                {diagnosisResults.symptom.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Symptoms</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {diagnosisResults.symptom.map((symptom, index) => (
+                        <span key={index} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-full text-sm">
+                          {symptom}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {diagnosisResults.diseases.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Diseases</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {diagnosisResults.diseases.map((disease, index) => (
+                        <span key={index} className="px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded-full text-sm">
+                          {disease}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {diagnosisResults.body_type.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Body Type</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {diagnosisResults.body_type.map((bodyType, index) => (
+                        <span key={index} className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded-full text-sm">
+                          {bodyType}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {diagnosisResults.symptom.length === 0 && diagnosisResults.diseases.length === 0 && diagnosisResults.body_type.length === 0 && (
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">No diagnosis results yet.</p>
+                )}
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Anatomy 3D Image Placeholder */}
+        <AnatomySelector 
+          onSymptomsChange={setSelectedSymptoms}
+        />
       </div>
     </div>
   );
