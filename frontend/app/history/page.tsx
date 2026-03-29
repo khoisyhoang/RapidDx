@@ -143,14 +143,7 @@ export default function HistoryPage() {
                           })}
                         </p>
                       </div>
-                      <div className="flex gap-2 text-sm">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                          Patient ID: {session.patient_id}
-                        </span>
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">
-                          Doctor ID: {session.doctor_id}
-                        </span>
-                      </div>
+                      
                     </div>
 
                     {session.symptoms && session.symptoms.length > 0 && (
