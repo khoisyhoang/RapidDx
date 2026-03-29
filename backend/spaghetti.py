@@ -1,6 +1,9 @@
+from flask import Blueprint, jsonify, request
 import scispacy
 from scispacy.linking import EntityLinker
 import spacy
+from conversation_summary_api import add_conversation_sentence
+from medical_diagnosis_api import add_symptoms
 
 # T023, T029, T030: Body Part
 # T184: Sign or Symptom
@@ -10,6 +13,7 @@ TYPE_TO_BUCKET = {"T184": "symptom", "T047": "diseases", "T023": "body_type", "T
 
 nlp = spacy.load("en_core_sci_md")
 nlp.add_pipe("scispacy_linker", config={"resolve_abbreviations": True, "linker_name": "umls"})
+scispacy_bp = Blueprint("scispacy_test", __name__)
 
 def is_model_loaded() -> bool:
     return nlp is not None
@@ -60,3 +64,32 @@ def diagnose_from_text(text: str) -> dict:
                 seen[bucket].add(value)
 
     return result
+
+
+@scispacy_bp.route("/api/scispacy/process", methods=["GET", "POST"])
+def process_scispacy_text():
+    payload = request.get_json(silent=True) or {}
+    text = (payload.get("text") or request.args.get("text") or "").strip()
+    session_id = (payload.get("session_id") or request.args.get("session_id") or "test-session-browser").strip()
+
+    if not text:
+        text = "I have headache and chest pain with coughing for two days."
+
+    try:
+        result = diagnose_from_text(text)
+        add_conversation_sentence(session_id, text)
+
+        combined_symptoms = list(dict.fromkeys(result.get("symptom", []) + result.get("diseases", [])))
+        buffered_symptoms = add_symptoms(session_id, combined_symptoms)
+
+        return jsonify(
+            {
+                "success": True,
+                "session_id": session_id,
+                "text": text,
+                "result": result,
+                "buffered_symptoms": buffered_symptoms,
+            }
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500

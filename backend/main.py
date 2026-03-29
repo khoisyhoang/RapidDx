@@ -3,6 +3,7 @@ from flask_sock import Sock
 from dotenv import load_dotenv
 from transcript_socket import register_transcript_ws
 from medical_diagnosis_api import diagnosis_bp
+from spaghetti import scispacy_bp
 
 load_dotenv()
 
@@ -13,6 +14,7 @@ def create_app():
     # Register WebSocket routes
     register_transcript_ws(sock)
     app.register_blueprint(diagnosis_bp)
+    app.register_blueprint(scispacy_bp)
 
     @app.after_request
     def add_cors_headers(response):

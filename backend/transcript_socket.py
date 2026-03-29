@@ -2,6 +2,7 @@ import json
 from flask_sock import Sock
 from spaghetti import diagnose_from_text, is_model_loaded, model_not_loaded_message
 from medical_diagnosis_api import add_symptoms
+from conversation_summary_api import add_conversation_sentence, generate_session_summary
 
 
 def _is_empty_result(result: dict) -> bool:
@@ -22,9 +23,36 @@ def register_transcript_ws(sock: Sock) -> None:
 
             try:
                 payload = json.loads(raw_message)
+                event = payload.get("event")
                 transcript_text = (payload.get("text") or "").strip()
                 is_final = bool(payload.get("final", False))
                 session_id = payload.get("session_id", "default-session")
+
+                if event == "session_end":
+                    try:
+                        summary = generate_session_summary(session_id)
+                        ws.send(
+                            json.dumps(
+                                {
+                                    "ok": True,
+                                    "event": "session_summary",
+                                    "session_id": session_id,
+                                    "summary": summary,
+                                }
+                            )
+                        )
+                    except Exception as exc:
+                        ws.send(
+                            json.dumps(
+                                {
+                                    "ok": False,
+                                    "event": "session_summary",
+                                    "session_id": session_id,
+                                    "error": str(exc),
+                                }
+                            )
+                        )
+                    continue
 
                 print(
                     f"Received transcript: '{transcript_text}' "
@@ -55,6 +83,8 @@ def register_transcript_ws(sock: Sock) -> None:
                         )
                     )
                     continue
+
+                add_conversation_sentence(session_id, transcript_text)
 
                 if not is_model_loaded():
                     ws.send(
