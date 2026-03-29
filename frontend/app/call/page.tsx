@@ -84,6 +84,8 @@ function CallRoom({ roomUrl }: CallRoomProps) {
   const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState(false);
   const [comprehensiveDiagnosis, setComprehensiveDiagnosis] = useState<any>(null);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [sessionSummary, setSessionSummary] = useState<any>(null);
+  const [isWaitingForSummary, setIsWaitingForSummary] = useState(false);
 
   // Auto-scroll transcription to bottom
   useEffect(() => {
@@ -159,6 +161,16 @@ function CallRoom({ roomUrl }: CallRoomProps) {
       setJoined(false);
     }
     stopSendingAudio();
+    
+    // Send session end event to WebSocket
+    if (transcriptWsRef.current?.readyState === WebSocket.OPEN) {
+      transcriptWsRef.current.send(JSON.stringify({
+        event: 'session_end',
+        session_id: 'test-session-browser'
+      }));
+    }
+   
+    
   };
 
   const startSendingAudio = async () => {
@@ -190,6 +202,10 @@ function CallRoom({ roomUrl }: CallRoomProps) {
               body_type: [...new Set([...prev.body_type, ...data.result.body_type])]
             };
           });
+        }
+        if (data.event === 'session_summary') {
+          setSessionSummary(data);
+          setIsWaitingForSummary(false);
         }
       } catch (error) {
         console.error('Failed to parse WebSocket message:', error);
@@ -250,9 +266,9 @@ function CallRoom({ roomUrl }: CallRoomProps) {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
-    if (transcriptWsRef.current) {
-      transcriptWsRef.current.close();
-    }
+    // if (transcriptWsRef.current) {
+    //   transcriptWsRef.current.close();
+    // }
     setIsRecording(false);
     setInterimTranscription('');
     console.log('Speech recognition stopped.');
@@ -354,8 +370,28 @@ function CallRoom({ roomUrl }: CallRoomProps) {
         </div>
 
         {/* Video Section */}
-        {joined && (
+        {(joined || isWaitingForSummary) && (
           <div className="flex-1 relative flex flex-col">
+            {/* Waiting for Summary UI */}
+            {isWaitingForSummary && (
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+                <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-xl">
+                  <CardContent className="p-8 text-center">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                          Generating Session Summary
+                        </h3>
+                        <p className="text-slate-600 dark:text-slate-400">
+                          Please wait while we analyze your consultation...
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
             <DailyAudio />
             <div className="h-96">
               {showLocalVideo ? (
