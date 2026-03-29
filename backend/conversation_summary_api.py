@@ -33,17 +33,34 @@ def clear_conversation(session_id: str) -> None:
 
 def _build_summary_prompt(conversation_text: str, symptoms: List[str]) -> str:
     return (
-        "You are a medical conversation summarizer.\n"
-        "Summarize the following consultation in concise bullet points.\n"
-        "Output sections in this exact order:\n"
-        "1) Chief Complaint\n"
-        "2) Symptom Timeline\n"
-        "3) Key Clinical Clues\n"
-        "4) Possible Conditions (not a definitive diagnosis)\n"
-        "5) Suggested Next Steps\n\n"
-        f"Symptoms extracted by NLP: {symptoms}\n\n"
-        "Conversation transcript:\n"
-        f"{conversation_text}"
+        f"""
+        You are a specialized medical data extractor.
+
+        ### Task:
+        Extract a chronological symptom timeline from the provided medical transcript.
+
+        ### Constraints:
+        1. Output ONLY a valid JSON object. No conversational filler or markdown code blocks (unless specified).
+        2. Convert relative time (e.g., '3 days ago', 'last night') into specific YYYY-MM-DD dates based on today's date.
+        3. If a specific date cannot be determined, use a descriptive timeframe (e.g., '2 weeks ago').
+        4. Sort the events from EARLIEST to LATEST.
+
+        ### JSON Schema:
+        {{
+        "symptom_timeline": [
+            {{
+            "date": "YYYY-MM-DD",
+            "symptom": "Name of the symptom",
+            "status": "onset / worsening / improving / resolved",
+            "description": "Short detail about severity or triggers"
+            }}
+        ]
+        }}
+
+        ### Input Data:
+        NLP Symptoms: {symptoms}
+        Transcript: {conversation_text}
+        """
     )
 
 
@@ -88,6 +105,4 @@ def generate_session_summary(session_id: str) -> str:
     conversation_text = "\n".join(conversation)
     prompt = _build_summary_prompt(conversation_text, symptoms)
     summary = _call_gemini(prompt)
-
-    clear_conversation(session_id)
     return summary

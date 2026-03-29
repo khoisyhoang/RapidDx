@@ -36,7 +36,9 @@ def test_sessions_connection() -> dict:
 def save_session_summary_and_symptoms(
     app_session_id: str,
     symptoms: List[str],
+    anatomy: List[str],
     summary_text: str,
+    conservation_record: str,
     patient_id: int | None = None,
     doctor_id: int | None = None,
 ) -> Dict[str, Any]:
@@ -46,10 +48,12 @@ def save_session_summary_and_symptoms(
         "patient_id": patient_id if patient_id is not None else 1,
         "doctor_id": doctor_id if doctor_id is not None else 1,
         "symptoms": symptoms,
+        "anatomy": anatomy,
         "summary": {
             "app_session_id": app_session_id,
             "text": summary_text,
         },
+        "conservation_record": conservation_record,
     }
 
     response = supabase.table("sessions").insert(row).execute()

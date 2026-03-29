@@ -10,6 +10,8 @@ diagnosis_bp = Blueprint("diagnosis_http", __name__)
 
 _store: Dict[str, List[str]] = {}
 _lock = Lock()
+_anatomy_store: Dict[str, List[str]] = {}
+_anatomy_lock = Lock()
 
 
 def add_symptoms(session_id: str, symptoms: List[str]) -> List[str]:
@@ -32,6 +34,28 @@ def get_symptoms(session_id: str) -> List[str]:
 def clear_symptoms(session_id: str) -> None:
     with _lock:
         _store.pop(session_id, None)
+
+
+def add_anatomy(session_id: str, anatomy: List[str]) -> List[str]:
+    if not anatomy:
+        return get_anatomy(session_id)
+
+    with _anatomy_lock:
+        current = _anatomy_store.setdefault(session_id, [])
+        for item in anatomy:
+            if item and item not in current:
+                current.append(item)
+        return list(current)
+
+
+def get_anatomy(session_id: str) -> List[str]:
+    with _anatomy_lock:
+        return list(_anatomy_store.get(session_id, []))
+
+
+def clear_anatomy(session_id: str) -> None:
+    with _anatomy_lock:
+        _anatomy_store.pop(session_id, None)
 
 
 def build_request_payload(symptoms: List[str], age: int = 20, gender: str = "male") -> Dict[str, Any]:
