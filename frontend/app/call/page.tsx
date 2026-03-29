@@ -355,43 +355,86 @@ function CallRoom({ roomUrl }: CallRoomProps) {
 
         {/* Video Section */}
         {joined && (
-          <div className="flex-1 relative">
+          <div className="flex-1 relative flex flex-col">
             <DailyAudio />
-            {showLocalVideo ? (
-              <div className="w-full h-full bg-slate-900 dark:bg-slate-800">
-                <DailyVideo
-                  sessionId="local"
-                  type="video"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-4 left-4 p-2 bg-black/50 rounded text-white">
-                  You
+            <div className="h-96">
+              {showLocalVideo ? (
+                <div className="w-full h-full bg-slate-900 dark:bg-slate-800">
+                  <DailyVideo
+                    sessionId="local"
+                    type="video"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-4 left-4 p-2 bg-black/50 rounded text-white">
+                    You
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="grid gap-4 p-4 h-full overflow-auto" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-                {otherParticipants.map((participantId) => (
-                  <Card key={participantId} className="border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
-                    <CardContent className="p-0">
-                      <div className="aspect-video bg-slate-900 dark:bg-slate-800">
+              ) : (
+                <div className={`overflow-auto h-full ${
+                  otherParticipants.length === 1 ? 'flex items-center justify-center p-4' : 
+                  otherParticipants.length === 2 ? 'grid grid-cols-2 gap-4 p-4' : 
+                  'grid gap-4 p-4'
+                }`}>
+                  {otherParticipants.map((participantId) => (
+                    <div key={participantId} className={`${
+                      otherParticipants.length === 1 ? 'max-w-4xl w-full' : 
+                      ''
+                    }`}>
+                      <div className="aspect-video bg-slate-900 dark:bg-slate-800 rounded-lg overflow-hidden shadow-lg">
                         <DailyVideo
                           sessionId={participantId}
                           type="video"
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <div className="p-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
+                      <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Participant</span>
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                         </div>
                       </div>
                       <DailyAudioTrack sessionId={participantId} type="audio" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Live Transcription */}
+            <div className="border-t border-slate-200 dark:border-slate-700">
+              <Card className="border-0 shadow-none rounded-none">
+                <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-b border-slate-200 dark:border-slate-700">
+                  <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                    Live Transcription
+                  </CardTitle>
+                </CardHeader>
+                <CardContent 
+                  ref={transcriptionRef}
+                  className="p-4 max-h-64 overflow-y-auto"
+                >
+                  <div className="space-y-4">
+                    {transcription && (
+                      <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <p className="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
+                          {transcription}
+                        </p>
+                      </div>
+                    )}
+                    {interimTranscription && (
+                      <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                        <p className="text-amber-800 dark:text-amber-200 italic leading-relaxed">
+                          {interimTranscription}
+                        </p>
+                      </div>
+                    )}
+                    {!transcription && !interimTranscription && (
+                      <p className="text-slate-500 dark:text-slate-400 text-sm">No transcription yet. Start speaking to see live updates.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
       </div>
@@ -463,40 +506,7 @@ function CallRoom({ roomUrl }: CallRoomProps) {
           />
         </div>
 
-        {/* Live Transcription */}
-        <Card className="flex-1 border-slate-200 dark:border-slate-700 shadow-lg m-4 flex flex-col">
-          <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-            <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              Live Transcription
-            </CardTitle>
-          </CardHeader>
-          <CardContent 
-            ref={transcriptionRef}
-            className="p-4 flex-1 overflow-y-auto"
-          >
-            <div className="space-y-4">
-              {transcription && (
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <p className="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
-                    {transcription}
-                  </p>
-                </div>
-              )}
-              {interimTranscription && (
-                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                  <p className="text-amber-800 dark:text-amber-200 italic leading-relaxed">
-                    {interimTranscription}
-                  </p>
-                </div>
-              )}
-              {!transcription && !interimTranscription && (
-                <p className="text-slate-500 dark:text-slate-400 text-sm">No transcription yet. Start speaking to see live updates.</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
 
       {/* Diagnosis Modal */}
       <DiagnosisModal
