@@ -266,16 +266,6 @@ export default function AnatomySelector({ onSymptomsChange, websocket, symptoms 
             <p className="text-purple-800 dark:text-purple-200 capitalize">
               {clickedBodyPart.replace('-', ' ')}
             </p>
-            <button
-              onClick={() => toggleMuscleSelection(clickedBodyPart)}
-              className={`mt-2 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                selectedMuscles.includes(clickedBodyPart)
-                  ? 'bg-purple-600 text-white hover:bg-purple-700'
-                  : 'bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-800 dark:text-purple-200'
-              }`}
-            >
-              {selectedMuscles.includes(clickedBodyPart) ? 'Remove from symptoms' : 'Add to symptoms'}
-            </button>
           </div>
         )}
         
