@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+import re
 import scispacy
 from scispacy.linking import EntityLinker
 import spacy
@@ -10,6 +11,16 @@ from medical_diagnosis_api import add_symptoms
 # T047: Disease or Syndrome
 TARGET_TYPES = {"T023", "T029", "T030", "T184", "T047"}
 TYPE_TO_BUCKET = {"T184": "symptom", "T047": "diseases", "T023": "body_type", "T029": "body_type", "T030": "body_type"}
+SCISPACY_TO_GROUP_MAPPING = {
+    "Chest": "chest",
+    "Upper arm": "arms",
+    "Shoulder": "shoulders",
+    "Leg": "legs",
+    "Foot": "feet",
+    "Head": "head",
+    "Hand": "hands",
+    "Pharyngeal structure": "neck",
+}
 
 nlp = spacy.load("en_core_sci_md")
 nlp.add_pipe("scispacy_linker", config={"resolve_abbreviations": True, "linker_name": "umls"})
@@ -38,6 +49,14 @@ def diagnose_from_text(text: str) -> dict:
 
     result = {"symptom": [], "diseases": [], "body_type": []}
     seen = {key: set() for key in result}
+    lower_text = text.lower()
+
+    # Hardcoded fallback: if these terms appear in transcript, add mapped body group directly.
+    for source_term, grouped_value in SCISPACY_TO_GROUP_MAPPING.items():
+        pattern = rf"\b{re.escape(source_term.lower())}\b"
+        if re.search(pattern, lower_text) and grouped_value not in seen["body_type"]:
+            result["body_type"].append(grouped_value)
+            seen["body_type"].add(grouped_value)
 
     for ent in doc.ents:
         best_match = None
@@ -59,6 +78,8 @@ def diagnose_from_text(text: str) -> dict:
         for t in best_match["types"]:
             bucket = TYPE_TO_BUCKET[t]
             value = best_match["name"]
+            if bucket == "body_type":
+                value = SCISPACY_TO_GROUP_MAPPING.get(value, value)
             if value not in seen[bucket]:
                 result[bucket].append(value)
                 seen[bucket].add(value)
