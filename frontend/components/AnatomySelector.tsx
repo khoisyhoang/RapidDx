@@ -150,17 +150,19 @@ export default function AnatomySelector({ onSymptomsChange, websocket, symptoms 
 
   const handleBodyPartClick = (muscleInfo: any) => {
     console.log('Clicked muscle info:', muscleInfo);
-    if (muscleInfo && muscleInfo.muscle) {
-      if (!highlightedMuscles.includes(muscleInfo.muscle)) {
+    if (muscleInfo && muscleInfo.slug) {
+      if (!highlightedMuscles.includes(muscleInfo.slug)) {
         return;
       }
-      setClickedBodyPart(muscleInfo.muscle);
-      void analyzeBodyPart(muscleInfo.muscle);
+      setClickedBodyPart(muscleInfo.slug);
+      console.log('Analyzing body part:', muscleInfo.slug);
+      void analyzeBodyPart(muscleInfo.slug);
     }
   };
 
   const analyzeBodyPart = async (bodyPart: string) => {
     if (!symptoms || symptoms.length === 0) {
+      console.log('No symptoms provided');
       setAnalyzeError(null);
       setBodyPartInsights([]);
       return;
