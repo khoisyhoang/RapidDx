@@ -12,14 +12,48 @@ from medical_diagnosis_api import add_symptoms
 TARGET_TYPES = {"T023", "T029", "T030", "T184", "T047"}
 TYPE_TO_BUCKET = {"T184": "symptom", "T047": "diseases", "T023": "body_type", "T029": "body_type", "T030": "body_type"}
 SCISPACY_TO_GROUP_MAPPING = {
-    "Chest": "chest",
-    "Upper arm": "arms",
-    "Shoulder": "shoulders",
-    "Leg": "legs",
-    "Foot": "feet",
+    # head area
     "Head": "head",
-    "Hand": "hands",
+    "Eye": "head",
+    "Ear": "head",
+    "Nose": "head",
+    "Mouth": "head",
+    "Face": "head",
+
+    # neck
+    "Neck": "neck",
     "Pharyngeal structure": "neck",
+    "Throat": "neck",
+
+    # chest & torso
+    "Chest": "chest",
+    "Breast": "chest",
+
+    # back
+    "Back": "back",
+    "Spine": "back",
+
+    # arms
+    "Arm": "arms",
+    "Upper arm": "arms",
+    "Elbow": "arms",
+    "Forearm": "arms",
+    "Wrist": "arms",
+
+    # hands
+    "Hand": "hands",
+    "Finger": "hands",
+    "Thumb": "hands",
+
+    # legs
+    "Leg": "legs",
+    "Thigh": "legs",
+    "Knee": "legs",
+
+    # feet
+    "Foot": "feet",
+    "Ankle": "feet",
+    "Toe": "feet",
 }
 
 nlp = spacy.load("en_core_sci_md")
