@@ -2,14 +2,14 @@ import scispacy
 from scispacy.linking import EntityLinker
 import spacy
 
-# T029: Body Part
+# T023, T029, T030: Body Part
 # T184: Sign or Symptom
 # T047: Disease or Syndrome
-TARGET_TYPES = {"T029", "T184", "T047"}
-TYPE_TO_BUCKET = {"T184": "symptom", "T047": "diseases", "T029": "body_type"}
+TARGET_TYPES = {"T023", "T029", "T030", "T184", "T047"}
+TYPE_TO_BUCKET = {"T184": "symptom", "T047": "diseases", "T023": "body_type", "T029": "body_type", "T030": "body_type"}
 
 try:
-    nlp = spacy.load("en_core_sci_sm")
+    nlp = spacy.load("en_core_sci_md")
     nlp.add_pipe("scispacy_linker", config={"resolve_abbreviations": True, "linker_name": "umls"})
 except OSError:
     nlp = None
@@ -45,7 +45,7 @@ def diagnose_from_text(text: str) -> dict:
             matched_types = [t for t in concept.types if t in TARGET_TYPES]
             if not matched_types:
                 continue
-            if best_match is None or score > best_match["score"]:
+            if score > 0.9 and (best_match is None or score > best_match["score"]):
                 best_match = {
                     "name": concept.canonical_name,
                     "types": matched_types,

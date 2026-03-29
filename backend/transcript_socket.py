@@ -3,6 +3,14 @@ from flask_sock import Sock
 from spaghetti import diagnose_from_text, is_model_loaded, model_not_loaded_message
 
 
+def _is_empty_result(result: dict) -> bool:
+    return (
+        not result.get("symptom")
+        and not result.get("diseases")
+        and not result.get("body_type")
+    )
+
+
 def register_transcript_ws(sock: Sock) -> None:
     @sock.route("/ws/transcript")
     def transcript_stream(ws) -> None:
@@ -61,6 +69,10 @@ def register_transcript_ws(sock: Sock) -> None:
                     continue
 
                 result = diagnose_from_text(transcript_text)
+                if _is_empty_result(result):
+                    print(f"[diagnose] empty result, skip send. session={session_id}")
+                    continue
+
                 ws.send(
                     json.dumps(
                         {
