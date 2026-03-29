@@ -80,6 +80,27 @@ function CallRoom({ roomUrl }: CallRoomProps) {
   const [diagnosisResults, setDiagnosisResults] = useState<{symptom: string[], diseases: string[], body_type: string[]} | null>(null);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
 
+  // const runDiagnose = async (text: string) => {
+  //   try {
+  //     const response = await fetch('http://localhost:5000/api/diagnose', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({
+  //         text,
+  //         final: true,
+  //         session_id: 'test-session-browser',
+  //       }),
+  //     });
+
+  //     const data = await response.json();
+  //     console.log('Diagnose API result:', data);
+  //   } catch (error) {
+  //     console.error('Diagnose API error:', error);
+  //   }
+  // };
+
   const joinRoom = async () => {
     if (daily && roomUrl) {
       console.log('Joining room:', roomUrl);
@@ -156,6 +177,8 @@ function CallRoom({ roomUrl }: CallRoomProps) {
           final: true,
           session_id: 'test-session-browser'
         }));
+
+        // void runDiagnose(finalTranscript);
       }
 
       // // Send interim transcripts to backend
@@ -323,35 +346,6 @@ function CallRoom({ roomUrl }: CallRoomProps) {
 
       {/* Right side: Live Diagnosis Section */}
       <div className="w-96 flex flex-col border-l border-slate-200 dark:border-slate-700">
-        {/* Live Transcription */}
-        {(transcription || interimTranscription) && (
-          <Card className="flex-1 border-slate-200 dark:border-slate-700 shadow-lg m-4">
-            <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-b border-slate-200 dark:border-slate-700">
-              <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                Live Transcription
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 flex-1 overflow-auto">
-              <div className="space-y-4">
-                {transcription && (
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <p className="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
-                      {transcription}
-                    </p>
-                  </div>
-                )}
-                {interimTranscription && (
-                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <p className="text-amber-800 dark:text-amber-200 italic leading-relaxed">
-                      {interimTranscription}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Live Diagnosis */}
         {diagnosisResults && (
@@ -411,7 +405,39 @@ function CallRoom({ roomUrl }: CallRoomProps) {
         {/* Anatomy 3D Image Placeholder */}
         <AnatomySelector 
           onSymptomsChange={setSelectedSymptoms}
+          websocket={transcriptWsRef.current}
         />
+
+        {/* Live Transcription */}
+        <Card className="flex-1 border-slate-200 dark:border-slate-700 shadow-lg m-4">
+          <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-b border-slate-200 dark:border-slate-700">
+            <CardTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+              Live Transcription
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 flex-1 overflow-auto">
+            <div className="space-y-4">
+              {transcription && (
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <p className="text-slate-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
+                    {transcription}
+                  </p>
+                </div>
+              )}
+              {interimTranscription && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-amber-800 dark:text-amber-200 italic leading-relaxed">
+                    {interimTranscription}
+                  </p>
+                </div>
+              )}
+              {!transcription && !interimTranscription && (
+                <p className="text-slate-500 dark:text-slate-400 text-sm">No transcription yet. Start speaking to see live updates.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

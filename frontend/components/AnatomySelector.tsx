@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Body from '@mjcdev/react-body-highlighter';
 import {
   Card,
@@ -11,31 +11,128 @@ import {
 
 interface AnatomySelectorProps {
   onSymptomsChange?: (symptoms: string[]) => void;
+  websocket?: WebSocket | null;
 }
+// mapping before
+const scispacyToGroupMapping = {
+  // head area
+  "Head": "head",
+  "Eye": "head",
+  "Ear": "head",
+  "Nose": "head",
+  "Mouth": "head",
+  "Face": "head",
+
+  // neck
+  "Neck": "neck",
+  "Pharyngeal structure": "neck",
+  "Throat": "neck",
+
+  // chest & torso
+  "Chest": "chest",
+  "Breast": "chest",
+
+  // back
+  "Back": "back",
+  "Spine": "back",
+
+  // arms
+  "Arm": "arms",
+  "Upper arm": "arms",
+  "Elbow": "arms",
+  "Forearm": "arms",
+  "Wrist": "arms",
+
+  // hands
+  "Hand": "hands",
+  "Finger": "hands",
+  "Thumb": "hands",
+
+  // legs
+  "Leg": "legs",
+  "Thigh": "legs",
+  "Knee": "legs",
+
+  // feet
+  "Foot": "feet",
+  "Ankle": "feet",
+  "Toe": "feet"
+};
+
+const muscleGroups = {
+  chest: ["chest"],
+  arms: ["biceps", "triceps", "forearm"],
+  shoulders: ["deltoids"],
+  legs: ["quadriceps", "hamstring", "calves", "gluteal", "adductors"],
+  core: ["abs", "obliques"],
+  back: ["trapezius", "upper-back", "lower-back"],
+  head: ["hair", "head"],
+  neck: ["neck"],
+  hands: ["hands"],
+  feet: ["feet", "ankles", "tibialis", "knees"]
+};
+
+const getMusclesInGroup = (groupName: string): string[] => {
+  return muscleGroups[groupName as keyof typeof muscleGroups] || [];
+};
+
+const mapScispacyToGroups = (scispacyBodyTypes: string[]): string[] => {
+  return scispacyBodyTypes.map(type => scispacyToGroupMapping[type as keyof typeof scispacyToGroupMapping] || type);
+};
 
 const anatomyData = [
+  { slug: "trapezius" },
+  { slug: "triceps" },
+  { slug: "forearm" },
+  { slug: "adductors" },
+  { slug: "calves" },
+  { slug: "hair" },
+  { slug: "neck" },
+  { slug: "deltoids" },
+  { slug: "hands" },
+  { slug: "feet" },
+  { slug: "head" },
+  { slug: "ankles" },
+  { slug: "tibialis" },
+  { slug: "obliques" },
   { slug: "chest" },
   { slug: "biceps" },
-  { slug: "triceps" },
-  { slug: "front-deltoids" },
-  { slug: "back-deltoids" },
-  { slug: "forearm" },
   { slug: "abs" },
-  { slug: "obliques" },
-  { slug: "trapezius" },
+  { slug: "quadriceps" },
+  { slug: "knees" },
   { slug: "upper-back" },
   { slug: "lower-back" },
-  { slug: "quadriceps" },
   { slug: "hamstring" },
-  { slug: "calves" },
-  { slug: "gluteal" },
-  { slug: "adductor" },
-  { slug: "abductors" }
+  { slug: "gluteal" }
 ];
 
-export default function AnatomySelector({ onSymptomsChange }: AnatomySelectorProps) {
+export default function AnatomySelector({ onSymptomsChange, websocket }: AnatomySelectorProps) {
   const [clickedBodyPart, setClickedBodyPart] = useState<string | null>(null);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
+  const [highlightedMuscles, setHighlightedMuscles] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (websocket) {
+      const handleMessage = (msg: MessageEvent) => {
+        try {
+          const data = JSON.parse(msg.data);
+          if (data.ok && data.event === 'diagnosis_result' && data.result && data.result.body_type && data.result.body_type.length > 0) {
+            const mappedGroups = mapScispacyToGroups(data.result.body_type);
+            const musclesToHighlight = mappedGroups.flatMap(group => getMusclesInGroup(group));
+            setHighlightedMuscles(musclesToHighlight);
+          }
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
+        }
+      };
+
+      websocket.addEventListener('message', handleMessage);
+      
+      return () => {
+        websocket.removeEventListener('message', handleMessage);
+      };
+    }
+  }, [websocket]);
 
   const handleBodyPartClick = (muscleInfo: any) => {
     console.log('Clicked muscle info:', muscleInfo);
@@ -69,8 +166,41 @@ export default function AnatomySelector({ onSymptomsChange }: AnatomySelectorPro
       </CardHeader>
       <CardContent className="p-4">
         <div className="aspect-square bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center">
-          <Body data={anatomyData as any} scale={1.7} onBodyPartClick={handleBodyPartClick} colors={["#900000"]}/>
+          <Body 
+            data={highlightedMuscles.length > 0 
+              ? highlightedMuscles.map(slug => ({ slug })) as any 
+              : [] 
+            } 
+            scale={1.7} 
+            onBodyPartClick={handleBodyPartClick} 
+            colors={highlightedMuscles.length > 0 ? ["#ff6b35", "#f7931e"] : ["#900000"]}
+          />
         </div>
+        
+        {/* Highlighted Body Parts from Diagnosis */}
+        {highlightedMuscles.length > 0 && (
+          <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+            <h4 className="text-sm font-semibold text-orange-900 dark:text-orange-100 mb-2">
+              AI Detected Areas ({highlightedMuscles.length})
+            </h4>
+            <div className="flex flex-wrap gap-1">
+              {highlightedMuscles.map((muscle) => (
+                <span
+                  key={muscle}
+                  className="px-2 py-1 bg-orange-100 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded-full text-xs capitalize"
+                >
+                  {muscle.replace('-', ' ')}
+                </span>
+              ))}
+            </div>
+            <button
+              onClick={() => setHighlightedMuscles([])}
+              className="mt-2 text-xs text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-200"
+            >
+              Clear highlights
+            </button>
+          </div>
+        )}
         
         {/* Clicked Body Part Display */}
         {clickedBodyPart && (
