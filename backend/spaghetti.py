@@ -8,11 +8,8 @@ import spacy
 TARGET_TYPES = {"T023", "T029", "T030", "T184", "T047"}
 TYPE_TO_BUCKET = {"T184": "symptom", "T047": "diseases", "T023": "body_type", "T029": "body_type", "T030": "body_type"}
 
-try:
-    nlp = spacy.load("en_core_sci_md")
-    nlp.add_pipe("scispacy_linker", config={"resolve_abbreviations": True, "linker_name": "umls"})
-except OSError:
-    nlp = None
+nlp = spacy.load("en_core_sci_md")
+nlp.add_pipe("scispacy_linker", config={"resolve_abbreviations": True, "linker_name": "umls"})
 
 def is_model_loaded() -> bool:
     return nlp is not None

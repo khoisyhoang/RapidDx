@@ -1,6 +1,7 @@
 import json
 from flask_sock import Sock
 from spaghetti import diagnose_from_text, is_model_loaded, model_not_loaded_message
+from medical_diagnosis_api import add_symptoms
 
 
 def _is_empty_result(result: dict) -> bool:
@@ -70,8 +71,11 @@ def register_transcript_ws(sock: Sock) -> None:
 
                 result = diagnose_from_text(transcript_text)
                 if _is_empty_result(result):
-                    print(f"[diagnose] empty result, skip send. session={session_id}")
+                    print("[diagnose] empty result, skip send.")
                     continue
+
+                combined_symptoms = list(dict.fromkeys(result["symptom"] + result["diseases"]))
+                buffered_symptoms = add_symptoms(session_id, combined_symptoms)
 
                 ws.send(
                     json.dumps(
@@ -81,6 +85,7 @@ def register_transcript_ws(sock: Sock) -> None:
                             "session_id": session_id,
                             "final": True,
                             "result": result,
+                            "buffered_symptoms": buffered_symptoms,
                         }
                     )
                 )

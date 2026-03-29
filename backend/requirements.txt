@@ -73,5 +73,6 @@ wheel==0.42.0
 xdg==5
 xkit==0.0.0
 flask-sock==0.6.0
+python-dotenv==1.1.1
 scispacy==0.6.2
 spacy==3.8.13
