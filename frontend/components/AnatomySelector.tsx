@@ -12,6 +12,7 @@ import {
 interface AnatomySelectorProps {
   onSymptomsChange?: (symptoms: string[]) => void;
   websocket?: WebSocket | null;
+  symptoms?: string[];
 }
 // mapping before
 const scispacyToGroupMapping = {
@@ -106,10 +107,19 @@ const anatomyData = [
   { slug: "gluteal" }
 ];
 
-export default function AnatomySelector({ onSymptomsChange, websocket }: AnatomySelectorProps) {
+interface BodyPartInsight {
+  symptom: string;
+  description: string;
+  risk_level: 'low' | 'medium' | 'high';
+}
+
+export default function AnatomySelector({ onSymptomsChange, websocket, symptoms = [] }: AnatomySelectorProps) {
   const [clickedBodyPart, setClickedBodyPart] = useState<string | null>(null);
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [highlightedMuscles, setHighlightedMuscles] = useState<string[]>([]);
+  const [bodyPartInsights, setBodyPartInsights] = useState<BodyPartInsight[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (websocket) {
@@ -137,7 +147,46 @@ export default function AnatomySelector({ onSymptomsChange, websocket }: Anatomy
   const handleBodyPartClick = (muscleInfo: any) => {
     console.log('Clicked muscle info:', muscleInfo);
     if (muscleInfo && muscleInfo.muscle) {
+      if (!highlightedMuscles.includes(muscleInfo.muscle)) {
+        return;
+      }
       setClickedBodyPart(muscleInfo.muscle);
+      void analyzeBodyPart(muscleInfo.muscle);
+    }
+  };
+
+  const analyzeBodyPart = async (bodyPart: string) => {
+    if (!symptoms || symptoms.length === 0) {
+      setAnalyzeError(null);
+      setBodyPartInsights([]);
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalyzeError(null);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/bodypart/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          body_part: bodyPart,
+          symptoms,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to analyze body part');
+      }
+      setBodyPartInsights(data.items || []);
+    } catch (error) {
+      console.error('Body part analyze error:', error);
+      setAnalyzeError(error instanceof Error ? error.message : 'Failed to analyze body part');
+      setBodyPartInsights([]);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -251,6 +300,44 @@ export default function AnatomySelector({ onSymptomsChange, websocket }: Anatomy
             >
               Clear all
             </button>
+          </div>
+        )}
+
+        {/* Gemini body-part analysis */}
+        {clickedBodyPart && (
+          <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-900/20 rounded-lg border border-slate-200 dark:border-slate-700">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              {clickedBodyPart.replace('-', ' ')} Analysis
+            </h4>
+            {isAnalyzing && <p className="text-xs text-slate-500 dark:text-slate-400">Analyzing...</p>}
+            {analyzeError && <p className="text-xs text-red-600 dark:text-red-400">{analyzeError}</p>}
+            {!isAnalyzing && !analyzeError && symptoms.length === 0 && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">No symptoms available yet.</p>
+            )}
+            {!isAnalyzing && !analyzeError && symptoms.length > 0 && bodyPartInsights.length === 0 && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">No related symptoms found.</p>
+            )}
+            {bodyPartInsights.length > 0 && (
+              <div className="space-y-2">
+                {bodyPartInsights.map((item, idx) => (
+                  <div key={`${item.symptom}-${idx}`} className="p-2 rounded border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{item.symptom}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                        item.risk_level === 'high'
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                          : item.risk_level === 'medium'
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                      }`}>
+                        {item.risk_level}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

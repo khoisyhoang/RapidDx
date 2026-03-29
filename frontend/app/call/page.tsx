@@ -406,6 +406,7 @@ function CallRoom({ roomUrl }: CallRoomProps) {
         <AnatomySelector 
           onSymptomsChange={setSelectedSymptoms}
           websocket={transcriptWsRef.current}
+          symptoms={diagnosisResults?.symptom || []}
         />
 
         {/* Live Transcription */}

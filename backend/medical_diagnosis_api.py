@@ -1,6 +1,7 @@
 import os
 from threading import Lock
 from typing import Any, Dict, List
+import json
 
 import requests
 from flask import Blueprint, jsonify, request
@@ -63,6 +64,75 @@ def call_medical_diagnosis_api(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise RuntimeError(f"Medical diagnosis API returned non-JSON response: {exc}") from exc
 
 
+def _call_gemini_bodypart_analysis(body_part: str, symptoms: List[str]) -> List[Dict[str, str]]:
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is not set")
+
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+    endpoint = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model}:generateContent?key={api_key}"
+    )
+
+    prompt = (
+        "You are a clinical triage assistant. "
+        "Given one body part and a symptom list, return ONLY valid JSON with this schema:\n"
+        "{ \"items\": ["
+        "{ \"symptom\": string, \"description\": string, \"risk_level\": \"low\"|\"medium\"|\"high\" }"
+        "] }\n"
+        "Rules:\n"
+        "- Return only symptoms relevant to the provided body part.\n"
+        "- Keep description concise (max 20 words).\n"
+        "- risk_level must be one of low, medium, high.\n"
+        "- No markdown, no extra text.\n\n"
+        f"Body part: {body_part}\n"
+        f"Symptoms: {symptoms}"
+    )
+
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.2},
+    }
+
+    response = requests.post(endpoint, json=payload, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+    candidates = data.get("candidates") or []
+    if not candidates:
+        return []
+
+    parts = candidates[0].get("content", {}).get("parts", [])
+    text = "\n".join([p.get("text", "") for p in parts if p.get("text")]).strip()
+    if not text:
+        return []
+
+    parsed = None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        # Some models wrap JSON in code fences.
+        cleaned = text.replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(cleaned)
+
+    items = parsed.get("items", []) if isinstance(parsed, dict) else []
+    result = []
+    for item in items:
+        symptom = str(item.get("symptom", "")).strip()
+        description = str(item.get("description", "")).strip()
+        risk_level = str(item.get("risk_level", "")).strip().lower()
+        if not symptom or not description or risk_level not in {"low", "medium", "high"}:
+            continue
+        result.append(
+            {
+                "symptom": symptom,
+                "description": description,
+                "risk_level": risk_level,
+            }
+        )
+    return result
+
+
 @diagnosis_bp.route("/api/diagnose", methods=["POST"])
 def diagnose_from_buffer():
     payload = request.get_json(silent=True) or {}
@@ -106,5 +176,33 @@ def diagnose_from_buffer():
             "session_id": session_id,
             "payload": diagnosis_payload,
             "diagnosis_result": diagnosis_result,
+        }
+    )
+
+
+@diagnosis_bp.route("/api/bodypart/analyze", methods=["POST"])
+def analyze_bodypart_with_gemini():
+    payload = request.get_json(silent=True) or {}
+    body_part = str(payload.get("body_part", "")).strip()
+    symptoms = payload.get("symptoms") or []
+    if not isinstance(symptoms, list):
+        symptoms = []
+
+    if not body_part:
+        return jsonify({"success": False, "error": "body_part is required"}), 400
+    if not symptoms:
+        return jsonify({"success": True, "body_part": body_part, "symptoms": [], "items": [], "skipped": True})
+
+    try:
+        items = _call_gemini_bodypart_analysis(body_part=body_part, symptoms=symptoms)
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 502
+
+    return jsonify(
+        {
+            "success": True,
+            "body_part": body_part,
+            "symptoms": symptoms,
+            "items": items,
         }
     )
