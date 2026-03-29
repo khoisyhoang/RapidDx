@@ -129,7 +129,11 @@ export default function AnatomySelector({ onSymptomsChange, websocket, symptoms 
           if (data.ok && data.event === 'diagnosis_result' && data.result && data.result.body_type && data.result.body_type.length > 0) {
             const mappedGroups = mapScispacyToGroups(data.result.body_type);
             const musclesToHighlight = mappedGroups.flatMap(group => getMusclesInGroup(group));
-            setHighlightedMuscles(musclesToHighlight);
+            setHighlightedMuscles(prev => {
+              const existing = new Set(prev);
+              const newMuscles = musclesToHighlight.filter(muscle => !existing.has(muscle));
+              return [...prev, ...newMuscles];
+            });
           }
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
